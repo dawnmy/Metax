@@ -1,8 +1,13 @@
 name: Release Metax to Bioconda
 
+# on:
+#   release:
+#     types: [published]         # only run on published GitHub Releases
+
 on:
+  workflow_dispatch:
   release:
-    types: [published]         # only run on published GitHub Releases
+    types: [published]
 
 jobs:
   build-and-publish:
