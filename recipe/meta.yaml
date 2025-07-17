@@ -14,7 +14,8 @@ build:
     - chmod +x $PREFIX/bin/metax
 
 requirements:
-  host: []
+  host: 
+    - python >=3.8,<3.11
   run:
     - ma ==1.1.4                # your binary’s only runtime dependency  [oai_citation:8‡bioconda.github.io](https://bioconda.github.io/contributor/build-system.html?utm_source=chatgpt.com)
 
