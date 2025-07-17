@@ -1,61 +1,36 @@
-name: Release Metax to Bioconda
+name: Debug Release Trigger
 
+# Allow both manual and real‐release runs
 on:
+  workflow_dispatch:
   release:
-    types: [published]         # only run on published GitHub Releases
+    types: [published]
 
 jobs:
-  build-and-publish:
+  debug-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3.0.4
-        with:
-          auto-activate-base: false
-
-      - name: Determine version
-        id: version
+      - name: Dump event context
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          echo "VERSION=${TAG}" >> $GITHUB_ENV
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          echo "EVENT_NAME=${{ github.event_name }}"
+          echo "ACTION=${{ github.event.action }}"
+          echo "TAG_NAME=${{ github.event.release.tag_name }}"
+          echo "REF_NAME=${{ github.ref_name }}"
+          echo "EVENT_PAYLOAD:"
+          cat ${{ github.event_path }}
 
-      - name: Download release tarball
+      # Only continue if it's really a published release
+      - name: Check trigger
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: echo "✅ Release published, proceeding…"
+
+      - name: Abort otherwise
+        if: github.event_name != 'release' || github.event.action != 'published'
         run: |
-          wget -O metax.tar.gz "https://github.com/dawnmy/Metax/releases/download/v${VERSION}/metax.tar.gz"
-        env:
-          VERSION: ${{ env.VERSION }}
+          echo "❌ Not a published release, stopping here."
+          exit 1
 
-      - name: Compute SHA-256 checksum
-        id: checksum
-        run: |
-          echo "SHA256=$(sha256sum metax.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
-
-      - name: Update recipe/meta.yaml
-        run: |
-          sed -i "s/^version:.*/version: \"${VERSION}\"/" recipe/meta.yaml
-          sed -i "s|^url:.*|url: https://github.com/dawnmy/Metax/releases/download/v${VERSION}/metax.tar.gz|" recipe/meta.yaml
-          sed -i "s/^sha256:.*/sha256: ${SHA256}/" recipe/meta.yaml
-        env:
-          VERSION: ${{ env.VERSION }}
-          SHA256: ${{ env.SHA256 }}
-
-      - name: Install build tools
-        run: conda install --yes conda-build anaconda-client
-
-      - name: Build Conda package
-        run: conda build recipe/
-
-      - name: Upload to Bioconda
-        # <-- Place your ANACONDA_TOKEN secret here
-        env:
-          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
-        run: |
-          anaconda auth login --token "$ANACONDA_TOKEN"
-          PKG=$(conda build recipe/ --output)
-          anaconda upload --force --user bioconda "$PKG"
+      # (The rest of your steps would go here…)
+      - name: Placeholder for your real build
+        run: echo "Here you’d conda build & upload"
