@@ -67,13 +67,19 @@ jobs:
         run: |
           micromamba run -n buildenv conda-build recipe/ --no-test
 
-      - name: Upload to Bioconda
+      # 8. Upload to Anaconda.org
+      - name: Upload to Anaconda.org
         env:
           ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+          # suppress the pkg_resources UserWarning
+          PYTHONWARNINGS: "ignore::UserWarning"
         run: |
+          # Log in non-interactively (saves token locally)
+          micromamba run -n buildenv anaconda login --token "$ANACONDA_TOKEN"
+          # Determine path of built package
           PKG=$(micromamba run -n buildenv conda-build --output recipe/)
+          # Upload with stored credentials
           micromamba run -n buildenv anaconda upload \
-            --token "$ANACONDA_TOKEN" \
             --force \
             --user zldeng \
             "$PKG"
