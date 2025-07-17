@@ -1,0 +1,36 @@
+name: Debug Release Trigger
+
+# Allow both manual and real‐release runs
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  debug-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dump event context
+        run: |
+          echo "EVENT_NAME=${{ github.event_name }}"
+          echo "ACTION=${{ github.event.action }}"
+          echo "TAG_NAME=${{ github.event.release.tag_name }}"
+          echo "REF_NAME=${{ github.ref_name }}"
+          echo "EVENT_PAYLOAD:"
+          cat ${{ github.event_path }}
+
+      # Only continue if it's really a published release
+      - name: Check trigger
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: echo "✅ Release published, proceeding…"
+
+      - name: Abort otherwise
+        if: github.event_name != 'release' || github.event.action != 'published'
+        run: |
+          echo "❌ Not a published release, stopping here."
+          exit 1
+
+      # (The rest of your steps would go here…)
+      - name: Placeholder for your real build
+        run: echo "Here you’d conda build & upload"
