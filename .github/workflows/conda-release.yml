@@ -72,4 +72,8 @@ jobs:
           ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
         run: |
           PKG=$(micromamba run -n buildenv conda-build --output recipe/)
-          micromamba run -n buildenv anaconda upload -t "$ANACONDA_TOKEN" --force --user bioconda "$PKG"
+          micromamba run -n buildenv anaconda upload \
+            --token "$ANACONDA_TOKEN" \
+            --force \
+            --user zldeng \
+            "$PKG"
