@@ -1,30 +1,45 @@
+# File: .github/workflows/conda-release.yml
+
 name: Release Metax to Bioconda
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.9.0)'
+        required: true
   release:
-    types: [published]
+    types: [published]         # only on published GitHub Releases
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: conda-incubator/setup-miniconda@v3.0.4
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3.0.4
         with:
           auto-activate-base: false
 
       - name: Determine version
         id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME#v}"
+          fi
           echo "VERSION=${TAG}" >> $GITHUB_ENV
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Download release tarball
-        run: wget -O metax.tar.gz "https://github.com/dawnmy/Metax/releases/download/v${VERSION}/metax.tar.gz"
+        run: |
+          wget -O metax.tar.gz \
+            "https://github.com/dawnmy/Metax/releases/download/v${VERSION}/metax.tar.gz"
         env:
           VERSION: ${{ env.VERSION }}
 
@@ -40,7 +55,7 @@ jobs:
           sed -i -E "s|^[[:space:]]*sha256:.*|  sha256: ${SHA256}|" recipe/meta.yaml
         env:
           VERSION: ${{ env.VERSION }}
-          SHA256: ${{ env.SHA256 }}
+          SHA256: ${{ env.CHECKSUM }}
 
       - name: Configure Conda channels
         run: |
