@@ -3,11 +3,13 @@
 name: Release Metax to Bioconda
 
 on:
+  # Manual trigger (for testing)
   workflow_dispatch:
     inputs:
       version:
         description: 'Release version (e.g. 0.9.0)'
         required: true
+  # Trigger on published GitHub Releases
   release:
     types: [published]
 
@@ -16,16 +18,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Check out the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3.0.4
+      # 2. Install micromamba and create a build environment
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v2
         with:
-          auto-activate-base: true   # ensures conda & conda-build are on PATH
+          environment-name: buildenv
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          create-args: |
+            python=3.10
+            conda-build
+            anaconda-client
 
+      # 3. Determine the version to build
       - name: Determine version
         id: version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.version }}"
@@ -33,21 +46,20 @@ jobs:
             TAG="${GITHUB_REF_NAME#v}"
           fi
           echo "VERSION=${TAG}" >> $GITHUB_ENV
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
 
-      - name: Download release tarball
-        run: |
-          wget -O metax.tar.gz \
+      # 4. Download the release tarball
+      - name: Download metax.tar.gz
+        run: wget -O metax.tar.gz \
             "https://github.com/dawnmy/Metax/releases/download/v${VERSION}/metax.tar.gz"
         env:
           VERSION: ${{ env.VERSION }}
 
+      # 5. Compute its SHA-256 checksum
       - name: Compute SHA-256 checksum
         id: checksum
-        run: |
-          echo "SHA256=$(sha256sum metax.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
+        run: echo "SHA256=$(sha256sum metax.tar.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
 
+      # 6. Update recipe/meta.yaml (version, url, sha256)
       - name: Update recipe/meta.yaml
         run: |
           sed -i -E "s|^[[:space:]]*version:.*|  version: \"${VERSION}\"|" recipe/meta.yaml
@@ -55,27 +67,20 @@ jobs:
           sed -i -E "s|^[[:space:]]*sha256:.*|  sha256: ${SHA256}|" recipe/meta.yaml
         env:
           VERSION: ${{ env.VERSION }}
-          SHA256: ${{ env.CHECKSUM }}
+          SHA256: ${{ env.SHA256 }}
 
-      - name: Configure Conda channels
-        run: |
-          conda config --add channels conda-forge
-          conda config --add channels bioconda
-          conda config --set channel_priority strict
-
-      - name: Install build tools
-        # run: conda install --yes conda-build anaconda-client
-        run: conda install --yes python=3.10 conda-build anaconda-client
-
+      # 7. Build the Conda package (skip tests)
       - name: Build Conda package
-        env:
-          CONDA_NO_PLUGINS: "true"
-        run: conda build recipe/ --no-test
+        run: micromamba run -n buildenv conda-build recipe/ --no-test
 
+      # 8. Upload the built package to bioconda
       - name: Upload to Bioconda
         env:
           ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
         run: |
-          anaconda auth login --token "$ANACONDA_TOKEN"
-          PKG=$(conda build recipe/ --output)
-          anaconda upload --force --user bioconda "$PKG"
+          # Authenticate non-interactively
+          micromamba run -n buildenv anaconda auth login --token "$ANACONDA_TOKEN"
+          # Find the built package path
+          PKG=$(micromamba run -n buildenv conda-build --output recipe/)
+          # Upload it
+          micromamba run -n buildenv anaconda upload --force --user bioconda "$PKG"
