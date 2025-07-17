@@ -12,12 +12,23 @@ source:
 #     - tar -xzf $SRC_DIR/metax.tar.gz -C $SRC_DIR
 #     - cp $SRC_DIR/Metax/metax $PREFIX/bin/metax
 #     - chmod +x $PREFIX/bin/metax
+# build:
+#   script:
+#     - mkdir -p $PREFIX/bin
+#     - cp -R Metax/metax $PREFIX/bin/metax
+#     - chmod +x $PREFIX/bin/metax
+
 build:
   script:
     - mkdir -p $PREFIX/bin
-    - cp -R Metax/metax $PREFIX/bin/metax
+    - |
+      BIN_PATH=$(find . -maxdepth 2 -type f -name metax | head -n1)
+      if [ -z "$BIN_PATH" ]; then
+        echo "ERROR: metax binary not found in source!" >&2
+        exit 1
+      fi
+    - cp "$BIN_PATH" $PREFIX/bin/metax
     - chmod +x $PREFIX/bin/metax
-
 
 requirements:
   host: 
