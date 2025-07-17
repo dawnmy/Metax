@@ -22,7 +22,7 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3.0.4
         with:
-          auto-activate-base: false
+          auto-activate-base: true   # ensures conda & conda-build are on PATH
 
       - name: Determine version
         id: version
@@ -46,7 +46,7 @@ jobs:
       - name: Compute SHA-256 checksum
         id: checksum
         run: |
-          echo "SHA256=$(sha256sum metax.tar.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
+          echo "SHA256=$(sha256sum metax.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
 
       - name: Update recipe/meta.yaml
         run: |
@@ -64,19 +64,17 @@ jobs:
           conda config --set channel_priority strict
 
       - name: Install build tools
-        run: |
-          conda install --yes conda-build
-          pip install anaconda-client
+        run: conda install --yes conda-build anaconda-client
 
       - name: Build Conda package
         env:
           CONDA_NO_PLUGINS: "true"
-        run: conda-build recipe/ --no-test
+        run: conda build recipe/ --no-test
 
       - name: Upload to Bioconda
         env:
           ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
         run: |
           anaconda auth login --token "$ANACONDA_TOKEN"
-          PKG=$(conda-build --output recipe/)
+          PKG=$(conda build recipe/ --output)
           anaconda upload --force --user bioconda "$PKG"
